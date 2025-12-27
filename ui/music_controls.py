@@ -21,15 +21,19 @@ class QueueSelect(discord.ui.Select):
         )
     
     async def callback(self, interaction: discord.Interaction):
-        from constants import queue
+        cog = interaction.client.get_cog("MusicCog")
+        state = cog.get_state(interaction.guild.id)
 
         index = int(self.values[0])
-        song = queue.pop(index)
+        song = state.queue.pop(index)
+
+        state.queue.insert(0, song)
 
         vc = interaction.guild.voice_client
-        vc.stop()
 
-        queue.insert(0, song)
+        if vc and vc.is_playing():
+            vc.stop()
+
 
         await interaction.response.send_message(
             f"🎶 Seleccionada: **{song['title']}**",
@@ -82,6 +86,13 @@ class MusicControls(discord.ui.View):
             await interaction.response.send_message("❌ Debes estar en un canal de voz para saltar la canción.", ephemeral=False)
             return
         
+        cog = interaction.client.get_cog("MusicCog")
+        state = cog.get_state(interaction.guild.id)
+
+        print(state)
+
+        state.current = None
+        
         user_id = interaction.user.id
 
         if user_id in force_skip_votes:
@@ -120,14 +131,15 @@ class MusicControls(discord.ui.View):
 
     @discord.ui.button(label="📜 Cola", style=discord.ButtonStyle.success)
     async def show_queue(self, interaction: discord.Interaction, button: discord.ui.Button):
-        from constants import queue
+        cog = interaction.client.get_cog("MusicCog")
+        state = cog.get_state(interaction.guild.id)
 
-        if not queue:
+        if not state.queue:
             await interaction.response.send_message("📭 La cola está vacía.", ephemeral=True)
             return
     
         await interaction.response.send_message(
             "Seleccione una canción de la cola:",
-            view=QueueView(queue),
+            view=QueueView(state.queue),
             ephemeral=False
         )
