@@ -1,10 +1,11 @@
 import discord
 import yt_dlp
 import asyncio
+import random
 from settings import Settings
 from discord.ext import commands
 from music_controls import MusicControls
-from constants import queue
+from constants import queue, force_skip_votes, force_skip_probability
 
 
 intents = discord.Intents.default()
@@ -39,6 +40,8 @@ async def on_ready():
 async def play_next(ctx):
     if not queue:
         return
+    
+    force_skip_votes.clear() # reset por canción
 
     song = queue.pop(0)
     source = discord.FFmpegPCMAudio(song['url'], **ffmpeg_opts)
@@ -51,7 +54,7 @@ async def play_next(ctx):
         )
     )
 
-    await ctx.send(f"🎶 Reproduciendo: **{song['title']}**")
+    await ctx.send(f"🎶 Reproduciendo: **{song['title']}**", view=MusicControls(ctx))
 
 @bot.command()
 async def play(ctx, *, search: str):
@@ -99,7 +102,7 @@ async def queue_list(ctx):
     for i, song in enumerate(queue, start=1):
         message += f"{i}. {song['title']}\n"
 
-    await ctx.send(message)
+    await ctx.send(message, view=MusicControls(ctx))
 
 @bot.command()
 async def skip(ctx):
@@ -114,5 +117,34 @@ async def stop(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
         await ctx.voice_client.disconnect()
+
+@bot.command(name='forceskip')
+async def force_skip(ctx: commands.Context):
+    vc = ctx.voice_client
+
+    if not ctx.author.voice:
+        await ctx.send("❌ Parcero metase a la llamada.", view=MusicControls(ctx))
+        return
+
+    if not vc or not vc.is_playing():
+        await ctx.send("❌ No hay ninguna canción reproduciéndose.", view=MusicControls(ctx))
+        return
+
+    user_id = ctx.author.id
+    
+    if user_id in force_skip_votes:
+        await ctx.send("⛔ Ya intentaste forzar skip en esta canción.")
+        return
+    
+    force_skip_votes.add(user_id)
+
+    chance = random.randint(1, 100)
+
+    if chance <= force_skip_probability:
+        vc.stop()
+        await ctx.send(f"🎲 **{ctx.author.display_name}**\n⏭️ Skip concedido.", view=MusicControls(ctx))
+    else:
+        await ctx.send(f"🎲 **{ctx.author.display_name} BURRO 😈**\n", view=MusicControls(ctx))
+
 
 bot.run(Settings.DISCORD_TOKEN)

@@ -1,5 +1,6 @@
 import discord
-
+import random
+from constants import force_skip_probability, force_skip_votes
 
 class QueueSelect(discord.ui.Select):
     def __init__(self, queue):
@@ -62,22 +63,51 @@ class MusicControls(discord.ui.View):
 
         if vc.is_playing():
             vc.pause()
-            await interaction.response.send_message("⏸️ Pausado", ephemeral=True)
+            await interaction.response.send_message("⏸️ Pausado", ephemeral=False)
         elif vc.is_paused():
             vc.resume()
-            await interaction.response.send_message("▶️ Reanudado", ephemeral=True)
+            await interaction.response.send_message("▶️ Reanudado", ephemeral=False)
         else:
-            await interaction.response.send_message("❌ No hay audio.", ephemeral=True)
+            await interaction.response.send_message("❌ No hay audio.", ephemeral=False)
 
     @discord.ui.button(label="⏭️ Skip", style=discord.ButtonStyle.secondary)
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
         vc = interaction.guild.voice_client
 
-        if vc and vc.is_playing():
+        if not vc or not vc.is_playing():
+            await interaction.response.send_message("❌ No hay ninguna canción reproduciéndose.", ephemeral=False)
+            return
+        
+        if not interaction.user.voice or interaction.user.voice.channel != vc.channel:
+            await interaction.response.send_message("❌ Debes estar en un canal de voz para saltar la canción.", ephemeral=False)
+            return
+        
+        user_id = interaction.user.id
+
+        if user_id in force_skip_votes:
+            await interaction.response.send_message(
+                "⛔ Ya intentaste forzar skip en esta canción.",
+                ephemeral=True
+            )
+            return
+    
+        force_skip_votes.add(user_id)
+
+        roll = random.randint(1, 100)
+
+        if roll <= force_skip_probability:
             vc.stop()
-            await interaction.response.send_message("⏭️ Canción saltada", ephemeral=True)
+            await interaction.response.send_message(
+                f"🎲 **{interaction.user.display_name}** 🎉\n"
+                "⏭️ Skip concedido.",
+                ephemeral=False
+            )
         else:
-            await interaction.response.send_message("❌ No hay canción.", ephemeral=True)
+            await interaction.response.send_message(
+                f"🎲 **{interaction.user.display_name}** 😢\n"
+                "⏭️ Skip denegado burrooo.",
+                ephemeral=False
+            )
 
     @discord.ui.button(label="⏹️ Stop", style=discord.ButtonStyle.danger)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -99,5 +129,5 @@ class MusicControls(discord.ui.View):
         await interaction.response.send_message(
             "Seleccione una canción de la cola:",
             view=QueueView(queue),
-            ephemeral=True
+            ephemeral=False
         )
