@@ -1,0 +1,27 @@
+# Byte-code files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+env/
+.env
+
+# IDE-specific files
+.idea/  # For PyCharm
+.vscode/ # For VS Code (optional, as some settings can be useful)
+.spyderproject
+.ropeproject
+
+# Build artifacts and documentation
+/site
+dist/
+build/
+*.egg-info/
+
+# Log and temporary files
+*.log
+tmp/
